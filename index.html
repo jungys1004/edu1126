@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="공무원 여비 규정에 따른 국내 출장여비 계산기">
+  <title>공무원 출장여비 계산기</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./vendor/jszip.min.js" defer></script>
+  <script src="./excel-export.js" defer></script>
+  <script src="./calculator.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="shell">
+      <p class="edition">공무원 여비 규정 · 2026. 10. 2. 시행본</p>
+      <h1>출장여비 계산기</h1>
+      <p>국내 출장의 항목별 지급액과 예상 총액을 확인하세요.</p>
+    </div>
+  </header>
+  <main class="shell layout">
+    <form id="trip-form" class="panel" aria-labelledby="input-heading">
+      <h2 id="input-heading">출장 정보</h2>
+      <fieldset class="trip-type">
+        <legend>출장 구분</legend>
+        <div class="choices">
+          <label><input type="radio" name="tripType" value="within" checked> 근무지 내</label>
+          <label><input type="radio" name="tripType" value="outside"> 근무지 외</label>
+        </div>
+        <p class="hint">근무지 내 출장은 규정 제18조에서 정한 같은 시·군·섬 안의 출장 또는 여행거리 12km 미만의 출장입니다. 섬 기준에서 제주특별자치도는 제외되며, 통합특별시에는 종전 관할구역 기준을 적용합니다.</p>
+      </fieldset>
+      <div class="fields">
+        <label>출장 출발일<input name="departure" type="date" required></label>
+        <label>출장 복귀일<input name="return" type="date" required></label>
+      </div>
+      <fieldset id="within-fields">
+        <div class="fields">
+          <label>출발 시각<input name="startTime" type="time" required></label>
+          <label>복귀 시각<input name="endTime" type="time" required></label>
+        </div>
+        <label>차량 구분
+          <select name="withinVehicle">
+            <option value="none">해당 없음</option>
+            <option value="official">공무용 차량 이용 등 감액 대상</option>
+            <option value="assigned">전용 차량 배정자</option>
+          </select>
+        </label>
+      </fieldset>
+      <fieldset id="outside-fields" hidden disabled>
+        <div class="fields">
+          <label>여비 지급 구분
+            <select name="grade" required>
+              <option value="">별표 1의 본인 지급 구분 선택</option>
+              <option value="1">제1호</option>
+              <option value="2">제2호</option>
+              <option value="actual">대통령·국무총리</option>
+            </select>
+          </label>
+          <label>일비 반액 적용 일수<input name="halfDays" type="number" min="0" step="1" value="0" aria-describedby="half-hint"></label>
+        </div>
+        <p class="hint" id="half-hint">공무용 차량 이용 등 일비를 반만 지급하는 날의 수를 입력하세요. 대통령·국무총리는 아래에 반액 기준을 반영한 일비 실비를 입력하세요.</p>
+        <fieldset id="actual-fields" class="fields" hidden disabled>
+          <label>일비 실비 (원)<input name="actualDaily" type="number" min="0" step="1" required></label>
+          <label>식비 실비 (원)<input name="actualMeals" type="number" min="0" step="1" required></label>
+        </fieldset>
+        <section class="subsection" aria-labelledby="transport-heading">
+          <h3 id="transport-heading">운임</h3>
+          <div id="transport-rows"></div>
+          <button type="button" class="secondary" id="add-transport">교통수단 추가</button>
+          <p class="hint">할인 후 금액을 입력하세요. 공적 마일리지로 운임을 절약했다면 운임에는 정산 대상 금액을 입력하세요.</p>
+        </section>
+        <section class="subsection" aria-labelledby="lodging-heading">
+          <h3 id="lodging-heading">숙박비</h3>
+          <div id="lodging-rows"></div>
+          <button type="button" class="secondary" id="add-lodging">숙박 추가</button>
+          <p class="hint">실제 숙박한 밤만 추가하세요. 선박·항공 이동 중에는 부득이하게 육지에서 숙박한 경우만 입력합니다.</p>
+        </section>
+        <details class="subsection">
+          <summary>특례 및 추가 정산</summary>
+          <label>별도 식비가 필요 없었던 선박·항공 여행일수<input name="noMealDays" type="number" min="0" step="1" value="0"></label>
+          <div class="fields">
+            <label>공적 마일리지로 절약한 운임 (원)<input name="mileageSavings" type="number" min="0" step="1" value="0"></label>
+            <label>정산 기준상 지급 가능한 추가 일비 (원)<input name="mileageDaily" type="number" min="0" step="1" value="0"></label>
+          </div>
+          <p class="hint">별표 2의 추가 일비는 일비의 50%이며, 총액은 절약한 운임을 초과할 수 없습니다. 출장 건에 적용되는 지급 가능액은 소속 기관 기준에 따라 입력하세요.</p>
+          <label>장기 체재 일비 감액액 (원)<input name="stayDeduction" type="number" min="0" step="1" value="0"></label>
+          <p class="hint">같은 곳에 도착한 다음 날부터 16~30일째는 정액의 10%, 31~60일째는 20%, 61일째부터는 30%를 감액합니다. 중간에 다른 지역으로 출장한 기간은 체재일수에서 빼고, 소속 기관의 기준에 따라 산정한 감액 총액을 입력하세요.</p>
+          <label class="check"><input name="extendedLodging" type="checkbox"> 부득이한 사유로 숙박비 초과분을 정산하는 경우 반영</label>
+        </details>
+      </fieldset>
+      <p id="form-error" class="error" role="alert" hidden></p>
+      <div class="actions">
+        <button type="submit" class="primary">여비 계산</button>
+        <button type="reset" class="secondary">입력 초기화</button>
+      </div>
+    </form>
+    <section class="panel result" aria-labelledby="result-heading" id="result" tabindex="-1">
+      <header class="print-only print-heading">
+        <p>공무원 여비 규정 · 2026. 10. 2. 시행본</p>
+        <h1>출장여비 계산 내역</h1>
+        <p id="print-trip"></p>
+        <p id="print-period"></p>
+      </header>
+      <div class="total">
+        <h2 id="result-heading">예상 지급 총액</h2>
+        <p id="total" aria-live="polite">—</p>
+        <p id="duration">출장 정보를 입력하고 여비를 계산하세요.</p>
+      </div>
+      <div class="breakdown">
+        <h3>항목별 여비</h3>
+        <dl id="items">
+          <div><dt>출장여비</dt><dd>—</dd></div>
+        </dl>
+        <p id="result-note" class="hint" hidden></p>
+        <div class="result-actions">
+          <button type="button" class="secondary" id="print-result" disabled>PDF 출력</button>
+          <button type="button" class="secondary" id="save-excel" disabled>엑셀 저장</button>
+        </div>
+        <p class="error export-error" id="excel-error" role="alert" hidden></p>
+      </div>
+    </section>
+    <details class="panel basis">
+      <summary>계산 기준과 정산 기한</summary>
+      <ul>
+        <li>근무지 내 출장에는 제18조를 적용합니다. 근무지 외 출장은 제8조의2, 제10조~제17조 및 별표 2를 기준으로 계산합니다.</li>
+        <li>운임과 숙박비는 출장 종료 다음 날부터 2주 이내에 증빙을 갖춰 정산을 신청합니다. 부득이한 국내 숙박비 초과분은 상한의 30%까지 추가 지급할 수 있으며, 신청 기한은 출장 종료 다음 날부터 1주 이내입니다.</li>
+        <li>제1호·제2호 대상은 별표 1에서 확인해야 합니다. 소속 기관별 특례와 별도 감액·지급 기준이 있는 경우에는 해당 기준을 적용합니다.</li>
+      </ul>
+    </details>
+  </main>
+  <template id="transport-template">
+    <div class="entry">
+      <div class="fields">
+        <label>교통수단
+          <select data-field="mode">
+            <option value="rail">철도</option><option value="ship">선박</option><option value="air">항공</option>
+            <option value="bus">버스 등</option><option value="car">자가용</option><option value="official">공용 차량·선박·항공기</option>
+          </select>
+        </label>
+        <label data-label="fare"><span>정산 대상 운임 (원)</span><input data-field="fare" type="number" min="0" step="1" required></label>
+      </div>
+      <label class="check" data-label="unavoidable" hidden><input data-field="unavoidable" type="checkbox" disabled> 공무상 부득이한 자가용 이용</label>
+      <p class="hint" data-label="transport-hint"></p>
+      <button type="button" class="remove">운임 삭제</button>
+    </div>
+  </template>
+  <template id="lodging-template">
+    <div class="entry">
+      <div class="fields lodging-fields">
+        <label>숙박 지역
+          <select data-field="region">
+            <option value="seoul">서울특별시</option><option value="metro">광역시</option><option value="other">그 밖의 지역</option>
+          </select>
+        </label>
+        <label>숙박일수 (박)<input data-field="nights" type="number" min="1" step="1" value="1" required></label>
+        <label>할인 후 1박 요금 (원)<input data-field="rate" type="number" min="0" step="1" required></label>
+      </div>
+      <p class="hint">지역이나 1박 요금이 다르면 숙박을 따로 추가하세요.</p>
+      <button type="button" class="remove">숙박 삭제</button>
+    </div>
+  </template>
+</body>
+</html>
